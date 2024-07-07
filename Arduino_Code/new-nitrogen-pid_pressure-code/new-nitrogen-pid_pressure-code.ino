@@ -1,6 +1,6 @@
 #include <LiquidCrystal.h>
 #include <Wire.h>
-#define DAC_ADDR 0x0E
+#define DAC_ADDR 0x0C
 
 #include "SevSeg.h"
 SevSeg sevseg; //Initiate a seven segment controller object
@@ -51,20 +51,20 @@ void setup() {
   Wire.begin();
 
 
-  byte numDigits = 4;  
-  byte digitPins[] = {38, 42, 40, 41};
-  byte segmentPins[] = {32, 43, 37, 39, 33, 35, 30, 34};
+  //byte numDigits = 4;  
+  //byte digitPins[] = {38, 42, 40, 41};
+  //byte segmentPins[] = {32, 43, 37, 39, 33, 35, 30, 34};
   bool resistorsOnSegments = 0; 
   // variable above indicates that 4 resistors were placed on the digit pins.
   // set variable to 1 if you want to use 8 resistors on the segment pins.
-  sevseg.begin(COMMON_CATHODE, numDigits, digitPins, segmentPins, resistorsOnSegments);
-  sevseg.setBrightness(90);
+  //sevseg.begin(COMMON_CATHODE, numDigits, digitPins, segmentPins, resistorsOnSegments);
+  //sevseg.setBrightness(90);
 
 
   // setup for readout leds for output of MFC - output is prop to mass flow rate
-  pinMode(22, OUTPUT);   
-  pinMode(24, OUTPUT);    
-  pinMode(26, OUTPUT); 
+  //pinMode(22, OUTPUT);   
+  //pinMode(24, OUTPUT);    
+  //pinMode(26, OUTPUT); 
 }
 
 void loop() {
@@ -75,7 +75,7 @@ void loop() {
   if ((time  - lastUpdate) >= 500) {
 
     // setpoint code
-    analogValue = analogRead(analogPin); 
+    analogValue = analogRead(A3); 
     float setpoint = analogValue*(0.0048);
     float setpoint_pressure = setpoint * 5.0;
 
@@ -85,20 +85,18 @@ void loop() {
 
     //display setpoint on lcd
     lcd.setCursor(0, 0);
-    lcd.print("Setpoint ");
     lcd.print(setpoint_pressure);
+    lcd.print(", ");
   
     //read pressure on 10bit scale. 1:5 conversion scale
-    float voltage = analogRead(A11)*(5.0/1024);
+    float voltage = analogRead(A1)*(5.0/1024);
     float pressure = voltage * 5;
 
-    //display pressure on lcd
-    lcd.setCursor(0, 1);
-    lcd.print("Pressure ");
     lcd.print(pressure);
 
     // //setting up PID
-    float delta = pressure - setpoint_pressure; 
+    float delta = pressure - setpoint_pressure;
+    Serial.println(delta);
 
     if(delta < 0.0){
       delta = 0.0;
@@ -114,13 +112,9 @@ void loop() {
  
     // PID, first term is linear diff, second term is integrated error, third term, differential of error
     output_voltage = atan(.1 * error + .00000007 * errSum  + 0 * dErr);
+    Serial.println(error);
+    Serial.println(output_voltage);
 
-    // Serial.println("Delta V");
-    // Serial.println(error);
-    // Serial.println("Integral V");
-    // Serial.println(errSum);
-    // Serial.println("Deriv V");
-    // Serial.println(dErr);
 
     //convert PID output voltage to binary, 16 bit on dac
     float output = output_voltage / 5.0 * 65535;
@@ -137,10 +131,10 @@ void loop() {
     Wire.endTransmission();
 
     //run led to mfc output voltage, first is low voltage, middle is medium, right is high flow rate
-    MFCoutput_voltage = analogRead(15)*(5.0/20);
+    MFCoutput_voltage = analogRead(A2)*(5.0/1024);
     Serial.println("MFC Output Voltage: ");
     Serial.println(MFCoutput_voltage);
-    Serial.println(analogRead(15));
+    //Serial.println(analogRead(15));
 
     //code to update timing
     lastUpdate = time;
@@ -151,13 +145,20 @@ void loop() {
     //fetches time for loop to run as step in integral as riemann sum
     lastTime = now;
 
+      //display pressure on lcd
+    lcd.setCursor(0, 1);
+    lcd.print(output_voltage);
+    lcd.print(", ");
+    lcd.print(MFCoutput_voltage);
+
+
     // transmit data over i2c to arduino wifi
     int output_voltage_i2c = (int) (output_voltage * 100.0);
     int pressure_i2c = (int) (pressure * 1000.0);
-    Serial.println("Pressure, sent to i2c: ");
-    Serial.println(pressure_i2c);
-    Serial.println("Voltage, sent to i2c: ");
-    Serial.println(output_voltage_i2c);
+    //Serial.println("Pressure, sent to i2c: ");
+    //Serial.println(pressure_i2c);
+    //Serial.println("Voltage, sent to i2c: ");
+    //Serial.println(output_voltage_i2c);
 
     Wire.beginTransmission(0x60); // transmit to device #4
     Wire.write(output_voltage_i2c);        // sends five bytes
@@ -170,37 +171,37 @@ void loop() {
 
   //for seven segment display, get output voltage
 
-  double v = output_voltage;
-  unsigned n = v * 100;
+  //double v = output_voltage;
+  //unsigned n = v * 100;
 
   //shifts decimal place to fetch each digit to write to seven segment display
-  unsigned d1 = (n / 1000U) % 10;
-  unsigned d2 = (n / 100U) % 10;
-  unsigned d3 = (n / 10U) % 10;
-  unsigned d4 = (n) % 10;
+  //unsigned d1 = (n / 1000U) % 10;
+  //unsigned d2 = (n / 100U) % 10;
+  //unsigned d3 = (n / 10U) % 10;
+  //unsigned d4 = (n) % 10;
 
   //have to do a lookup table bc of bit swapping
-  uint8_t segs[4] = {digit[d1], digitP[d2], digit[d3], digit[d4]};
-  sevseg.setSegments(segs);
+  //uint8_t segs[4] = {digit[d1], digitP[d2], digit[d3], digit[d4]};
+  //sevseg.setSegments(segs);
 
-  sevseg.refreshDisplay(); // Must run repeatedly
+  //sevseg.refreshDisplay(); // Must run repeatedly
 
 
-  if(MFCoutput_voltage < .200) {
-    digitalWrite(22, HIGH);
-    digitalWrite(24, LOW);
-    digitalWrite(26, LOW);
-  }
-  if(3.2 > MFCoutput_voltage >= 1.6) {
-    digitalWrite(22, LOW);
-    digitalWrite(24, HIGH);
-    digitalWrite(26, LOW);
-  }
-  if(MFCoutput_voltage >= 3.2) {
-    digitalWrite(22, LOW);
-    digitalWrite(24, HIGH);
-    digitalWrite(26, HIGH);
-  }
+  //if(MFCoutput_voltage < .200) {
+    //digitalWrite(22, HIGH);
+    //digitalWrite(24, LOW);
+    //digitalWrite(26, LOW);
+  //}
+  //if(3.2 > MFCoutput_voltage >= 1.6) {
+    //digitalWrite(22, LOW);
+    //digitalWrite(24, HIGH);
+    //digitalWrite(26, LOW);
+  //}
+  //if(MFCoutput_voltage >= 3.2) {
+    //digitalWrite(22, LOW);
+    //digitalWrite(24, HIGH);
+    //digitalWrite(26, HIGH);
+  //}
 
 }
 
