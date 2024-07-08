@@ -22,7 +22,7 @@ def send_to_influxdb(measurement, location, timestamp, temperature, temperatureS
 
 #setting up InfluxDBClient
 
-host = '137.165.104.194'
+host = '137.165.107.243'
 port = '8086'
 
 username = 'admin'
