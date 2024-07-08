@@ -24,7 +24,7 @@ def send_to_influxdb(measurement, location, timestamp, temperature, humidity):
 
 #Setting up influxdb data <-> for specific database
 
-host = '137.165.104.194'
+host = '137.165.107.243'
 port = '8086'
 	
 username='admin'
